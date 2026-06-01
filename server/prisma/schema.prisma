@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int               @id @default(autoincrement())
+  name         String
+  email        String            @unique
+  passwordHash String
+  role         String            @default("participant")
+  createdAt    DateTime          @default(now())
+
+  quizzes      Quiz[]
+  participants RoomParticipant[]
+}
+
+model Quiz {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  category    String?
+  timeLimit   Int        @default(30)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  createdById Int
+  createdBy   User       @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  questions   Question[]
+  rooms       QuizRoom[]
+}
+
+model Question {
+  id        Int            @id @default(autoincrement())
+  quizId    Int
+  quiz      Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  text      String
+  imageUrl  String?
+  type      String         @default("single_choice")
+  points    Int            @default(100)
+  order     Int            @default(0)
+
+  options   AnswerOption[]
+  answers   ParticipantAnswer[]
+}
+
+model AnswerOption {
+  id         Int      @id @default(autoincrement())
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false)
+}
+
+model QuizRoom {
+  id                       Int               @id @default(autoincrement())
+  quizId                   Int
+  quiz                     Quiz              @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  roomCode                 String            @unique
+  status                   String            @default("waiting")
+  currentQuestionIndex     Int               @default(-1)
+  currentQuestionStartedAt DateTime?
+  startedAt                DateTime?
+  finishedAt               DateTime?
+  createdAt                DateTime          @default(now())
+
+  participants             RoomParticipant[]
+}
+
+model RoomParticipant {
+  id          Int                 @id @default(autoincrement())
+  roomId      Int
+  room        QuizRoom            @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  score       Int                 @default(0)
+  joinedAt    DateTime            @default(now())
+
+  answers     ParticipantAnswer[]
+
+  @@unique([roomId, userId])
+}
+
+model ParticipantAnswer {
+  id                Int             @id @default(autoincrement())
+  participantId     Int
+  participant       RoomParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  questionId        Int
+  question          Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOptionIds String
+  isCorrect         Boolean         @default(false)
+  earnedPoints      Int             @default(0)
+  answeredAt        DateTime        @default(now())
+
+  @@unique([participantId, questionId])
+}
